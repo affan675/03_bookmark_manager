@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Affan's Bookmark Vault</title>
+  <meta name="description" content="Personal bookmark manager for URLs and local HTML files." />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Custom cursor elements (hidden on touch devices via JS) -->
+  <div id="cursor-dot" aria-hidden="true"></div>
+  <canvas id="cursor-trail" aria-hidden="true"></canvas>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <h1>Affan's Bookmark Vault</h1>
+      <p class="tagline">Save links. Save HTML. Find them fast.</p>
+    </div>
+    <div class="topbar-actions">
+      <button id="theme-toggle" class="btn btn-ghost" type="button" title="Toggle theme">🌙</button>
+      <button id="export-btn" class="btn btn-ghost" type="button">Export</button>
+      <label for="import-input" class="btn btn-ghost" role="button">Import
+        <input id="import-input" type="file" accept="application/json" hidden />
+      </label>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Add / Edit form -->
+    <section class="panel form-panel" aria-labelledby="form-title">
+      <h2 id="form-title">Add a bookmark</h2>
+      <form id="bookmark-form" autocomplete="off">
+        <input type="hidden" id="bookmark-id" />
+
+        <div class="form-row">
+          <label for="bm-title">Title</label>
+          <input type="text" id="bm-title" placeholder="e.g. Claude AI" required />
+        </div>
+
+        <div class="form-row">
+          <label for="bm-url">URL</label>
+          <input type="url" id="bm-url" placeholder="https://example.com" />
+          <small class="hint">Leave empty if you're uploading an HTML file below.</small>
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="bm-category">Category</label>
+            <input type="text" id="bm-category" placeholder="e.g. AI Tools" list="category-suggestions" />
+            <datalist id="category-suggestions"></datalist>
+          </div>
+          <div>
+            <label for="bm-tags">Tags (comma separated)</label>
+            <input type="text" id="bm-tags" placeholder="ai, chat, productivity" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="bm-file">Upload local HTML file (optional)</label>
+          <input type="file" id="bm-file" accept=".html,.htm,text/html" />
+          <small class="hint">If selected, the file's contents are saved as an HTML bookmark.</small>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="form-submit" class="btn btn-primary">Add Bookmark</button>
+          <button type="button" id="form-cancel" class="btn btn-ghost hidden">Cancel edit</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Toolbar: search + filters -->
+    <section class="toolbar">
+      <input type="search" id="search-input" placeholder="Search by title or tag…" />
+      <div id="category-filters" class="category-filters" role="tablist">
+        <!-- buttons rendered by ui.js -->
+      </div>
+    </section>
+
+    <!-- Bookmarks grid -->
+    <section class="bookmarks-section">
+      <div id="bookmarks-grid" class="bookmarks-grid" aria-live="polite"></div>
+      <p id="empty-state" class="empty-state hidden">No bookmarks match your search.</p>
+    </section>
+
+  </main>
+
+  <!-- HTML Preview Modal -->
+  <div id="preview-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="preview-title">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-content modal-content-large">
+      <header class="modal-header">
+        <h3 id="preview-title">Preview</h3>
+        <button class="modal-close" data-close-modal type="button" aria-label="Close">×</button>
+      </header>
+      <iframe id="preview-iframe" sandbox="allow-scripts" title="HTML preview"></iframe>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-content">
+      <header class="modal-header">
+        <h3 id="confirm-title">Are you sure?</h3>
+        <button class="modal-close" data-close-modal type="button" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <p id="confirm-message">This action cannot be undone.</p>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-ghost" data-close-modal type="button">Cancel</button>
+        <button id="confirm-ok" class="btn btn-danger" type="button">Delete</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Notifications container -->
+  <div id="notifications" class="notifications" aria-live="polite"></div>
+
+  <!-- Custom cursor + trail (self-contained) -->
+  <script>
+    (function () {
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
+
+      var dot = document.getElementById('cursor-dot');
+      var canvas = document.getElementById('cursor-trail');
+      if (!dot || !canvas) return;
+
+      document.documentElement.classList.add('has-custom-cursor');
+      var ctx = canvas.getContext('2d');
+      var w = 0, h = 0, dpr = window.devicePixelRatio || 1;
+
+      function resize() {
+        w = window.innerWidth; h = window.innerHeight;
+        canvas.width = w * dpr; canvas.height = h * dpr;
+        canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      var mouse = { x: w / 2, y: h / 2 };
+      var trail = [];
+      var TRAIL_LEN = 12;
+      for (var i = 0; i < TRAIL_LEN; i++) trail.push({ x: mouse.x, y: mouse.y });
+
+      window.addEventListener('mousemove', function (e) {
+        mouse.x = e.clientX; mouse.y = e.clientY;
+        dot.style.transform = 'translate3d(' + (mouse.x - 6) + 'px,' + (mouse.y - 6) + 'px,0)';
+      }, { passive: true });
+
+      // Hover scale on interactive elements
+      document.addEventListener('mouseover', function (e) {
+        if (e.target.closest('button, a, .card, input, label[role="button"], [data-close-modal]')) {
+          dot.classList.add('cursor-hover');
+        }
+      });
+      document.addEventListener('mouseout', function (e) {
+        if (e.target.closest('button, a, .card, input, label[role="button"], [data-close-modal]')) {
+          dot.classList.remove('cursor-hover');
+        }
+      });
+
+      function tick() {
+        // shift trail
+        trail.unshift({ x: mouse.x, y: mouse.y });
+        if (trail.length > TRAIL_LEN) trail.pop();
+
+        ctx.clearRect(0, 0, w, h);
+        for (var i = 0; i < trail.length; i++) {
+          var p = trail[i];
+          var alpha = (1 - i / trail.length) * 0.5;
+          var radius = Math.max(1, 5 - i * 0.35);
+          ctx.beginPath();
+          ctx.fillStyle = 'rgba(120, 170, 255,' + alpha + ')';
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    })();
+  </script>
+
+  <!-- App scripts (order matters: storage → model → ui → fileHandler → app) -->
+  <script src="js/storage.js"></script>
+  <script src="js/bookmarkModel.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/fileHandler.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
