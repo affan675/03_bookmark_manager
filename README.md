@@ -163,7 +163,7 @@ bookmark-vault/
 
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for full details.
 
-Copyright © 2026 [Affan Adil](https://github.com/yourusername)
+Copyright © 2026 [Affan Adil](https://github.com/affan675)
 
 ---
 
@@ -173,7 +173,7 @@ Copyright © 2026 [Affan Adil](https://github.com/yourusername)
 
 **Affan Adil**
 
-[GitHub](https://github.com/yourusername) • [Portfolio](https://yourportfolio.com) • [Email](mailto:your.email@example.com)
+[GitHub](https://github.com/affan675) • [Portfolio](https://affan675.github.io/01_portfolio_v2/) • [Email](mailto:affanadil119@gmail.com)
 
 *Building tools for developers, by developers.*
 
@@ -202,16 +202,3 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 ⭐ If you find this useful, please consider starring the repository!
 
 </div>
-git clone https://github.com/affan675/03_bookmark_manager.git
-Launch:
-Open index.html in any modern web browser. No local server or environment setup is required.
-
-🛡️ Security & Privacy
-No Data Leaks: Your bookmarks and uploaded files never touch a server.
-
-Iframe Sandboxing: Local HTML previews are rendered using the sandbox attribute to prevent script execution from interfering with the main application state.
-
-Efficiency: Designed to be lightweight (~2MB safety cap on HTML files to stay within browser storage limits).
-
-📄 License
-This project is open-source and available under the MIT License.
